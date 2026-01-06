@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<html>
+<head>
+<title>Settings | CrowdCount</title>
+<link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="container">
+
+<div class="sidebar">
+    <h2>CrowdCount</h2>
+    <ul>
+        <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+        <li onclick="go('analytics.html')">📊 Analytics</li>
+        <li onclick="go('cameras.html')">📷 Cameras</li>
+        <li onclick="go('zones.html')">🗺 Zones</li>
+        <li onclick="go('export.html')">📤 Export Data</li>
+        <li onclick="go('settings.html')">⚙ Settings</li>
+        <li onclick="logout()">🚪 Logout</li>
+    </ul>
+</div>
+
+<div class="main">
+<h1>Alert & Threshold Settings</h1>
+
+<div id="settings"></div>
+
+</div>
+</div>
+
+<script>
+(function protect(){
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    if(!token || role!=="admin") location.href="login.html";
+})();
+
+function go(p){ location.href=p }
+function logout(){ localStorage.clear(); go("login.html") }
+
+function loadSettings(){
+    fetch("http://127.0.0.1:5000/alerts/config")
+    .then(r=>r.json())
+    .then(cfg=>{
+        const div = document.getElementById("settings");
+        div.innerHTML = "";
+        Object.keys(cfg).forEach(zone=>{
+            const z = cfg[zone];
+            div.innerHTML += `
+            <div class="card">
+                <h3>${zone.toUpperCase()}</h3>
+                Max Capacity:
+                <input type="number" id="${zone}_th" value="${z.threshold}">
+                Enable Alerts:
+                <input type="checkbox" id="${zone}_en" ${z.enabled?"checked":""}>
+                <br><br>
+                <button onclick="save('${zone}')">💾 Save</button>
+                <button onclick="ack('${zone}')">✅ Acknowledge</button>
+            </div>`;
+        });
+    });
+}
+
+function save(zone){
+    fetch("http://127.0.0.1:5000/alerts/update",{
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify({
+            zone: zone,
+            threshold: document.getElementById(zone+"_th").value,
+            enabled: document.getElementById(zone+"_en").checked
+        })
+    }).then(()=>alert("Saved"));
+}
+
+function ack(zone){
+    fetch(`http://127.0.0.1:5000/alerts/ack/${zone}`,{
+        method:"POST"
+    }).then(()=>alert("Alert acknowledged"));
+}
+
+loadSettings();
+</script>
+
+</body>
+</html>

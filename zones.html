@@ -1,0 +1,219 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Zone Management | CrowdCount</title>
+<link rel="stylesheet" href="admin.css">
+
+<style>
+.video-container {
+    position: relative;
+    display: inline-block;
+    margin: 10px;
+    border-radius: 12px;
+    overflow: hidden;
+}
+canvas {
+    position: absolute;
+    top: 0;
+    left: 0;
+    cursor: crosshair;
+}
+.zone-panel {
+    margin-top: 15px;
+}
+.zone-item {
+    display: flex;
+    justify-content: space-between;
+    margin: 6px 0;
+}
+button {
+    margin-left: 5px;
+}
+</style>
+</head>
+
+<body>
+
+<div class="container">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>CrowdCount</h2>
+    <ul>
+        <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+        <li onclick="go('analytics.html')">📊 Analytics</li>
+        <li onclick="go('cameras.html')">📷 Cameras</li>
+        <li onclick="go('zones.html')">🗺 Zones</li>
+        <li onclick="go('export.html')">📤 Export Data</li>
+        <li onclick="go('settings.html')">⚙ Settings</li>
+        <li onclick="logout()">🚪 Logout</li>
+    </ul>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+<h1>Zone Management</h1>
+<p>Draw, name, edit and delete zones on live feeds 👇</p>
+
+<div class="video-container">
+    <img src="http://127.0.0.1:5000/video/1" width="640" height="360">
+    <canvas id="canvas1" width="640" height="360"></canvas>
+</div>
+
+<div class="zone-panel">
+    <select id="zoneName">
+        <option value="Entry">Entry</option>
+        <option value="Exit">Exit</option>
+        <option value="Waiting Area">Waiting Area</option>
+    </select>
+
+    <button onclick="enableDraw()">✏️ Draw Zone</button>
+    <button onclick="saveZone()">💾 Save Zone</button>
+</div>
+
+<h3>Zones</h3>
+<div id="zoneList"></div>
+
+</div>
+</div>
+
+<script>
+/* 🔐 PROTECTION */
+(function(){
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    if(!token || role !== "admin"){
+        window.location.href = "login.html";
+    }
+})();
+
+function go(p){ location.href = p }
+function logout(){ localStorage.clear(); go("login.html") }
+
+/* ===== ZONE LOGIC ===== */
+
+const canvas = document.getElementById("canvas1");
+const ctx = canvas.getContext("2d");
+
+let zones = [];
+let drawingEnabled = false;
+let drawing = false;
+let startX = 0, startY = 0;
+let tempRect = null;
+
+/* Enable draw mode */
+function enableDraw(){
+    drawingEnabled = true;
+    alert("Draw mode enabled. Click and drag on video.");
+}
+
+/* Mouse events */
+canvas.addEventListener("mousedown", e => {
+    if(!drawingEnabled) return;
+    const r = canvas.getBoundingClientRect();
+    startX = e.clientX - r.left;
+    startY = e.clientY - r.top;
+    drawing = true;
+});
+
+canvas.addEventListener("mousemove", e => {
+    if(!drawing) return;
+    const r = canvas.getBoundingClientRect();
+    const x = e.clientX - r.left;
+    const y = e.clientY - r.top;
+    tempRect = { x:startX, y:startY, w:x-startX, h:y-startY };
+    redraw();
+});
+
+canvas.addEventListener("mouseup", () => drawing = false);
+
+/* Save zone */
+function saveZone(){
+    if(!tempRect) return alert("Draw a zone first");
+
+    const zone = {
+        id: Date.now(),
+        name: zoneName.value,
+        ...tempRect
+    };
+
+    zones.push(zone);
+    tempRect = null;
+    drawingEnabled = false;
+
+    redraw();
+    renderZoneList();
+
+    fetch("http://127.0.0.1:5000/zone/add", {
+        method:"POST",
+        headers:{ "Content-Type":"application/json" },
+        body: JSON.stringify(zone)
+    });
+}
+
+/* Draw all */
+function redraw(){
+    ctx.clearRect(0,0,canvas.width,canvas.height);
+
+    zones.forEach(z => drawZone(z, "blue"));
+    if(tempRect) drawZone(tempRect, "red", zoneName.value);
+}
+
+/* Draw single zone */
+function drawZone(z, color, label){
+    ctx.strokeStyle = color;
+    ctx.lineWidth = 2;
+    ctx.strokeRect(z.x, z.y, z.w, z.h);
+
+    ctx.fillStyle = color;
+    ctx.font = "14px Arial";
+    ctx.fillText(label || z.name, z.x + 4, z.y - 6);
+}
+
+/* Zone list */
+function renderZoneList(){
+    const list = document.getElementById("zoneList");
+    list.innerHTML = "";
+
+    zones.forEach((z,i)=>{
+        list.innerHTML += `
+        <div class="zone-item">
+            <span>${z.name}</span>
+            <span>
+                <button onclick="editZone(${i})">✏️</button>
+                <button onclick="deleteZone(${i})">🗑</button>
+            </span>
+        </div>`;
+    });
+}
+
+/* Edit */
+function editZone(i){
+    const name = prompt("Rename zone:", zones[i].name);
+    if(name){
+        zones[i].name = name;
+        redraw();
+        renderZoneList();
+
+        fetch("http://127.0.0.1:5000/zone/update",{
+            method:"PUT",
+            headers:{ "Content-Type":"application/json" },
+            body: JSON.stringify(zones[i])
+        });
+    }
+}
+
+/* Delete */
+function deleteZone(i){
+    const id = zones[i].id;
+    zones.splice(i,1);
+    redraw();
+    renderZoneList();
+
+    fetch(`http://127.0.0.1:5000/zone/delete/${id}`,{ method:"DELETE" });
+}
+</script>
+
+</body>
+</html>

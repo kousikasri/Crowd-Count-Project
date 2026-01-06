@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Admin Dashboard | Crowd Count</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>CrowdCount</h2>
+        <ul>
+            <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+            <li onclick="go('analytics.html')">📊 Analytics</li>
+            <li onclick="go('cameras.html')">📷 Cameras</li>
+            <li onclick="go('zones.html')">🗺️ Zones</li>
+            <li onclick="go('export.html')">📤 Export Data</li>
+            <li onclick="go('settings.html')">⚙️ Settings</li>
+            <li onclick="logout()">🚪 Logout</li>
+            <li onclick="go('user_management.html')">👥 User Management</li>
+
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        <h1>Admin Dashboard</h1>
+        <p>Welcome, Admin 👋</p>
+
+        <!-- STAT CARDS -->
+        <div class="cards">
+            <div class="card">
+                <h3>Total People</h3>
+                <p>245</p>
+            </div>
+            <div class="card">
+                <h3>Active Cameras</h3>
+                <p>4</p>
+            </div>
+            <div class="card">
+                <h3>Zones</h3>
+                <p>4</p>
+            </div>
+        </div>
+
+        <!-- LIVE VIDEO SECTION -->
+        <h2>Live Camera Preview</h2>
+        
+        <div class="video-grid">
+    <img src="http://127.0.0.1:5000/video/1">
+    <img src="http://127.0.0.1:5000/video/2">
+    <img src="http://127.0.0.1:5000/video/3">
+    <img src="http://127.0.0.1:5000/video/4">
+       </div>
+        
+    </div>
+
+</div>
+
+<script>
+/* 🔐 PAGE PROTECTION */
+(function protectAdminPage() {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
+    if (!token || role !== "admin") {
+        alert("Unauthorized access");
+        window.location.href = "login.html";
+    }
+})();
+
+/* 🎥 LOAD VIDEO STREAMS */
+const token = localStorage.getItem("token");
+
+document.getElementById("cam1").src = `http://127.0.0.1:5000/video/1?token=${token}`;
+document.getElementById("cam2").src = `http://127.0.0.1:5000/video/2?token=${token}`;
+document.getElementById("cam3").src = `http://127.0.0.1:5000/video/3?token=${token}`;
+document.getElementById("cam4").src = `http://127.0.0.1:5000/video/4?token=${token}`;
+
+/* 🔁 NAVIGATION */
+function go(page) {
+    window.location.href = page;
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+</script>
+
+<!-- ALERT POPUP -->
+<div id="alertBox" style="
+display:none;
+position:fixed;
+top:20px;
+right:20px;
+background:#ff4d4d;
+color:white;
+padding:20px;
+border-radius:8px;
+z-index:9999;
+box-shadow:0 0 10px rgba(0,0,0,0.4);
+">
+  <h3>🚨 Crowd Alert</h3>
+  <p id="alertText"></p>
+  <button onclick="ackAlert()" style="margin-top:10px;">Acknowledge</button>
+</div>
+
+<script>
+let currentZone = null;
+
+function checkAlerts(){
+    fetch("http://127.0.0.1:5000/alerts/active")
+    .then(r=>r.json())
+    .then(alerts=>{
+        const zones = Object.keys(alerts);
+        if(zones.length > 0){
+            currentZone = zones[0];
+            document.getElementById("alertText").innerText =
+                `${currentZone.toUpperCase()} exceeded capacity (${alerts[currentZone].count})`;
+            document.getElementById("alertBox").style.display = "block";
+        }
+    });
+}
+
+function ackAlert(){
+    fetch(`http://127.0.0.1:5000/alerts/ack/${currentZone}`,{
+        method:"POST"
+    }).then(()=>{
+        document.getElementById("alertBox").style.display = "none";
+    });
+}
+
+setInterval(checkAlerts, 3000); // poll every 3 sec
+</script>
+
+<!-- SIREN SOUND -->
+<audio id="siren" loop>
+    <source src="assets/siren.mp3" type="audio/mpeg">
+</audio>
+
+<script>
+let sirenPlaying = false;
+let activeZone = null;
+
+function checkAlertsWithSound(){
+    fetch("http://127.0.0.1:5000/alerts/active")
+    .then(r => r.json())
+    .then(alerts => {
+        const zones = Object.keys(alerts);
+
+        if (zones.length > 0 && !sirenPlaying) {
+            activeZone = zones[0];
+
+            // 🔊 Play siren
+            document.getElementById("siren").play();
+            sirenPlaying = true;
+
+            console.log("🚨 Siren ON for", activeZone);
+        }
+
+        if (zones.length === 0 && sirenPlaying) {
+            stopSiren();
+        }
+    });
+}
+
+function stopSiren(){
+    const siren = document.getElementById("siren");
+    siren.pause();
+    siren.currentTime = 0;
+    sirenPlaying = false;
+    activeZone = null;
+
+    console.log("✅ Siren OFF");
+}
+
+// Hook siren stop to acknowledge button
+function ackAlert(){
+    fetch(`http://127.0.0.1:5000/alerts/ack/${activeZone}`, {
+        method: "POST"
+    }).then(() => {
+        stopSiren();
+        document.getElementById("alertBox").style.display = "none";
+    });
+}
+
+setInterval(checkAlertsWithSound, 3000);
+</script>
+
+<script>
+document.body.addEventListener("click", () => {
+    document.getElementById("siren").play().then(() => {
+        document.getElementById("siren").pause();
+    }).catch(()=>{});
+}, { once: true });
+</script>
+
+
+</body>
+</html>

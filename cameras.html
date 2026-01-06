@@ -1,0 +1,189 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <title>Camera Management | Admin</title>
+    <link rel="stylesheet" href="admin.css">
+    <style>
+        .camera-table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-top: 20px;
+        }
+        .camera-table th, .camera-table td {
+            border: 1px solid #ddd;
+            padding: 10px;
+            text-align: left;
+        }
+        .camera-table th {
+            background-color: #f4f4f4;
+        }
+        .camera-actions button {
+            margin-right: 5px;
+        }
+        .form-group {
+            margin: 10px 0;
+        }
+        .form-group input, .form-group select {
+            padding: 5px;
+            width: 200px;
+        }
+        .form-inline {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .form-inline button {
+            padding: 5px 10px;
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+
+    <!-- SIDEBAR -->
+    <div class="sidebar">
+        <h2>CrowdCount</h2>
+        <ul>
+            <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+            <li onclick="go('analytics.html')">📊 Analytics</li>
+            <li onclick="go('cameras.html')">📷 Cameras</li>
+            <li onclick="go('zones.html')">🗺️ Zones</li>
+            <li onclick="go('export.html')">📤 Export Data</li>
+            <li onclick="go('settings.html')">⚙️ Settings</li>
+            <li onclick="logout()">🚪 Logout</li>
+        </ul>
+    </div>
+
+    <!-- MAIN CONTENT -->
+    <div class="main">
+        <h1>Camera Management</h1>
+        <p>Manage all registered cameras 👇</p>
+
+        <!-- ADD NEW CAMERA -->
+        <h2>Register New Camera</h2>
+        <form id="addCameraForm" class="form-inline">
+            <div class="form-group">
+                <input type="text" id="cameraName" placeholder="Camera Name" required>
+            </div>
+            <div class="form-group">
+                <input type="text" id="cameraURL" placeholder="Video File URL" required>
+            </div>
+            <div class="form-group">
+                <input type="text" id="cameraLocation" placeholder="Location" required>
+            </div>
+            <div class="form-group">
+                <select id="cameraStatus">
+                    <option value="active">Active</option>
+                    <option value="inactive">Inactive</option>
+                </select>
+            </div>
+            <button type="submit">Add Camera</button>
+        </form>
+
+        <!-- CAMERA TABLE -->
+        <h2>Registered Cameras</h2>
+        <table class="camera-table">
+            <thead>
+                <tr>
+                    <th>ID</th>
+                    <th>Name</th>
+                    <th>Video URL</th>
+                    <th>Location</th>
+                    <th>Status</th>
+                    <th>Preview</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="cameraTableBody">
+                <!-- Camera rows will be populated here -->
+            </tbody>
+        </table>
+
+    </div>
+</div>
+
+<script>
+/* 🔐 PAGE PROTECTION */
+(function protectAdminPage() {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+
+    if (!token || role !== "admin") {
+        alert("Unauthorized access");
+        window.location.href = "login.html";
+    }
+})();
+
+/* 🔁 NAVIGATION */
+function go(page) {
+    window.location.href = page;
+}
+
+function logout() {
+    localStorage.clear();
+    window.location.href = "login.html";
+}
+
+/* 📷 CAMERA MANAGEMENT LOGIC */
+let cameras = [
+    // Example initial cameras
+    {id: 1, name: "Camera 1", url: "http://127.0.0.1:5000/video/1", location: "Lobby", status: "active"},
+    {id: 2, name: "Camera 2", url: "http://127.0.0.1:5000/video/2", location: "Entrance", status: "active"},
+];
+
+function renderCameraTable() {
+    const tbody = document.getElementById("cameraTableBody");
+    tbody.innerHTML = "";
+    cameras.forEach(cam => {
+        const row = document.createElement("tr");
+        row.innerHTML = `
+            <td>${cam.id}</td>
+            <td>${cam.name}</td>
+            <td>${cam.url}</td>
+            <td>${cam.location}</td>
+            <td>${cam.status}</td>
+            <td>
+                ${cam.status === "active" ? `<img src="${cam.url}" width="120">` : "Disabled"}
+            </td>
+            <td class="camera-actions">
+                <button onclick="toggleCamera(${cam.id})">${cam.status === "active" ? "Disable" : "Enable"}</button>
+                <button onclick="deleteCamera(${cam.id})">Delete</button>
+            </td>
+        `;
+        tbody.appendChild(row);
+    });
+}
+
+function toggleCamera(id) {
+    const cam = cameras.find(c => c.id === id);
+    cam.status = cam.status === "active" ? "inactive" : "active";
+    renderCameraTable();
+}
+
+function deleteCamera(id) {
+    cameras = cameras.filter(c => c.id !== id);
+    renderCameraTable();
+}
+
+/* ADD NEW CAMERA */
+document.getElementById("addCameraForm").addEventListener("submit", function(e) {
+    e.preventDefault();
+    const name = document.getElementById("cameraName").value;
+    const url = document.getElementById("cameraURL").value;
+    const location = document.getElementById("cameraLocation").value;
+    const status = document.getElementById("cameraStatus").value;
+    const id = cameras.length ? cameras[cameras.length - 1].id + 1 : 1;
+
+    cameras.push({id, name, url, location, status});
+    renderCameraTable();
+    this.reset();
+});
+
+/* INITIAL RENDER */
+renderCameraTable();
+</script>
+
+</body>
+</html>

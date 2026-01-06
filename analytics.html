@@ -1,0 +1,117 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Analytics | CrowdCount</title>
+<link rel="stylesheet" href="admin.css">
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+</head>
+
+<body>
+
+<script>
+(function protect() {
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    if (!token || role !== "admin") {
+        window.location.href = "login.html";
+    }
+})();
+</script>
+
+<div class="container">
+
+<!-- SIDEBAR -->
+<div class="sidebar">
+    <h2>CrowdCount</h2>
+    <ul>
+        <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+        <li onclick="go('analytics.html')">📊 Analytics</li>
+        <li onclick="go('cameras.html')">📷 Cameras</li>
+        <li onclick="go('zones.html')">🗺 Zones</li>
+        <li onclick="go('export.html')">📤 Export Data</li>
+        <li onclick="go('settings.html')">⚙ Settings</li>
+        <li onclick="logout()">🚪 Logout</li>
+    </ul>
+</div>
+
+<!-- MAIN -->
+<div class="main">
+<h1>Analytics Dashboard</h1>
+
+<!-- BAR CHART -->
+<h2>Zone-wise People Count</h2>
+<canvas id="barChart"></canvas>
+
+<br><br>
+
+<!-- LINE CHART -->
+<h2>Hourly People Count (Zone-wise)</h2>
+<canvas id="lineChart"></canvas>
+
+</div>
+</div>
+
+<script>
+const token = localStorage.getItem("token");
+
+function go(p){ window.location.href=p }
+function logout(){ localStorage.clear(); go("login.html") }
+
+// BAR CHART
+let barChart, lineChart;
+
+function fetchAnalytics() {
+    fetch("http://127.0.0.1:5000/api/analytics")
+    .then(res => res.json())
+    .then(data => {
+        const zones = Object.keys(data.zones);
+
+        const latestCounts = zones.map(
+            z => data.zones[z].slice(-1)[0] || 0
+        );
+
+        if (!barChart) {
+            barChart = new Chart(document.getElementById("barChart"), {
+                type: "bar",
+                data: {
+                    labels: zones,
+                    datasets: [{
+                        label: "Current People Count",
+                        data: latestCounts,
+                        backgroundColor: ["#ff6384","#36a2eb","#ffcd56","#4bc0c0"]
+                    }]
+                }
+            });
+
+            lineChart = new Chart(document.getElementById("lineChart"), {
+                type: "line",
+                data: {
+                    labels: [...Array(data.zones[zones[0]].length).keys()],
+                    datasets: zones.map((zone, i) => ({
+                        label: zone,
+                        data: data.zones[zone],
+                        borderWidth: 2,
+                        fill: false
+                    }))
+                }
+            });
+        } else {
+            barChart.data.datasets[0].data = latestCounts;
+            barChart.update();
+
+            lineChart.data.labels = [...Array(data.zones[zones[0]].length).keys()];
+            lineChart.data.datasets.forEach((ds, i) => {
+                ds.data = data.zones[zones[i]];
+            });
+            lineChart.update();
+        }
+    })
+    .catch(err => console.error("Analytics error:", err));
+}
+fetchAnalytics();
+setInterval(fetchAnalytics, 5000); // refresh every 2 sec
+</script>
+
+</body>
+</html>

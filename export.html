@@ -1,0 +1,54 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Export Data | CrowdCount</title>
+    <link rel="stylesheet" href="admin.css">
+</head>
+<body>
+
+<div class="container">
+
+<div class="sidebar">
+    <h2>CrowdCount</h2>
+    <ul>
+        <li onclick="go('admin_dashboard.html')">🏠 Dashboard</li>
+        <li onclick="go('analytics.html')">📊 Analytics</li>
+        <li onclick="go('cameras.html')">📷 Cameras</li>
+        <li onclick="go('zones.html')">🗺 Zones</li>
+        <li onclick="go('export.html')">📤 Export Data</li>
+        <li onclick="go('settings.html')">⚙ Settings</li>
+        <li onclick="logout()">🚪 Logout</li>
+    </ul>
+</div>
+
+<div class="main">
+    <h1>Export Analytics Data</h1>
+    <p>Download historical crowd analytics 👇</p>
+
+    <button onclick="exportCSV()">⬇ Export CSV</button>
+    <button onclick="exportPDF()">⬇ Export PDF</button>
+</div>
+
+</div>
+
+<script>
+(function protect(){
+    const token = localStorage.getItem("token");
+    const role = localStorage.getItem("role");
+    if(!token || role !== "admin") location.href="login.html";
+})();
+
+function go(p){ location.href=p }
+function logout(){ localStorage.clear(); go("login.html") }
+
+function exportCSV(){
+    window.open("http://127.0.0.1:5000/export/csv");
+}
+
+function exportPDF(){
+    window.open("http://127.0.0.1:5000/export/pdf");
+}
+</script>
+
+</body>
+</html>
